@@ -1,0 +1,47 @@
+---
+  - name: Install OpenSSL
+    apt:
+      name: openssl
+      state: present
+
+  - name: Copy SSL certificate
+    copy:
+      src: self-signed.crt
+      dest: /etc/ssl/certs/self-signed.crt
+
+  - name: Copy SSL key
+    copy:
+      src: self-signed.key
+      dest: /etc/ssl/private/self-signed.key
+
+  - name: Configure Apache for SSL
+    lineinfile:
+      path: /etc/apache2/sites-available/default-ssl.conf
+      regexp: '^SSLCertificateFile'
+      line: 'SSLCertificateFile /etc/ssl/certs/self-signed.crt'
+    notify: restart apache
+
+  - lineinfile:
+      path: /etc/apache2/sites-available/default-ssl.conf
+      regexp: '^SSLCertificateKeyFile'
+      line: 'SSLCertificateKeyFile /etc/ssl/private/self-signed.key'
+    notify: restart apache
+
+- name: Enable SSL module
+  apache2_module:
+    name: ssl
+    state: present
+  notify: restart apache
+
+- name: Enable SSL site
+  apache2_site:
+    name: default-ssl
+    state: enabled
+  notify: restart apache
+
+- name: Redirect HTTP to HTTPS
+  lineinfile:
+    path: /etc/apache2/sites-available/000-default.conf
+    line: 'Redirect "/" "https://{{ ansible_fqdn }}/"'
+    create: yes
+  notify: restart apache
